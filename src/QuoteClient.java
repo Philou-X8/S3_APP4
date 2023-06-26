@@ -29,8 +29,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import org.json.JSONObject;
+
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 public class QuoteClient {
 
@@ -76,14 +79,11 @@ public class QuoteClient {
         */
 
     }
-    private void sendPacket(PacketHeader header, String message) {
+    private void sendPacket(String packetJson) {
         try{
 
-            // create byte array for message
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            outputStream.write(header.getBytes(), 0, 128);
-            outputStream.write(message.getBytes(), 0, header.messageSize());
-            byte[] buf = outputStream.toByteArray();
+            System.out.println(packetJson);
+            byte[] buf = packetJson.getBytes(StandardCharsets.UTF_8);
 
             DatagramPacket packet = new DatagramPacket(buf, buf.length, addressIP, addressPort);
             this.socket.send(packet);
@@ -118,8 +118,16 @@ public class QuoteClient {
             addressPort = 4445;
 
             String fileName = args[1];
-            PacketHeader header = new PacketHeader(1, 0,0,fileName.getBytes().length, "First packet");
-            sendPacket(header, fileName);
+            JSONObject content = new JSONObject();
+            content.put("pNumber", 1);
+            content.put("pStart", 1);
+            content.put("pEnd", 100);
+            content.put("pStatus", 1);
+            content.put("mSize", fileName.length());
+            content.put("mContent", fileName);
+            sendPacket(content.toString());
+            //PacketHeader header = new PacketHeader(1, 0,0,fileName.getBytes().length, "First packet");
+            //sendPacket(header, fileName);
 
             receivePacket();
 

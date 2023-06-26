@@ -28,8 +28,11 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+import org.json.JSONObject;
+
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class QuoteServerThread extends Thread {
@@ -37,6 +40,9 @@ public class QuoteServerThread extends Thread {
     protected DatagramSocket socket = null;
     protected BufferedReader in = null;
     protected boolean moreQuotes = true;
+
+    private InetAddress addressIP;
+    private int addressPort;
 
     public QuoteServerThread() throws IOException {
         this("QuoteServerThread");
@@ -56,7 +62,32 @@ public class QuoteServerThread extends Thread {
     public void run() {
 
         while (moreQuotes) {
+            String packetContent = receivePacket();
+            Connection connection = new Connection(packetContent);
+
+            JSONObject content = new JSONObject();
+            content.put("pNumber", 1);
+            content.put("pStart", 1);
+            content.put("pEnd", 100);
+            content.put("pStatus", 1);
+            content.put("mSize", 0);
+            content.put("mContent", "");
+            sendPacket(content.toString());
+
+            /*
+            loop the reception of packets here
+             */
+            while(true){
+                String filePacket = receivePacket();
+                if(connection.receive(filePacket)){
+
+                }
+
+            }
+
+            /*
             try {
+
                 byte[] buf = new byte[256];
 
                 // receive request
@@ -84,10 +115,13 @@ public class QuoteServerThread extends Thread {
                 System.out.println("about to send packet on server");
                 socket.send(packet);
                 System.out.println("about to send packet on server -- done");
+
             } catch (IOException e) {
                 e.printStackTrace();
                 moreQuotes = false;
+
             }
+            */
         }
         socket.close();
     }
@@ -105,5 +139,40 @@ public class QuoteServerThread extends Thread {
         }
         return returnValue;
     }
+
+
+    private String receivePacket(){
+        try{
+            byte[] buf = new byte[256];
+            DatagramPacket packet = new DatagramPacket(buf, buf.length);
+            this.socket.receive(packet);
+            this.addressIP = packet.getAddress();
+            this.addressPort = packet.getPort();
+
+            byte[] packetData = packet.getData();
+            String packetString = new String(packetData, StandardCharsets.UTF_8);
+
+            System.out.println("receivePacket(): " + packetString);
+            return packetString;
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
+    private void sendPacket(String packetString) {
+        try{
+
+            byte[] buf = packetString.getBytes(StandardCharsets.UTF_8);
+
+            DatagramPacket packet = new DatagramPacket(buf, buf.length, this.addressIP, this.addressPort);
+            this.socket.send(packet);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 }
 

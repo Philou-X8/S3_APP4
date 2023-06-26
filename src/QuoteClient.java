@@ -42,6 +42,9 @@ public class QuoteClient {
     private int addressPort;
     private DatagramSocket socket;
 
+    private ArrayList<String> imagePackets;
+    private Integer awaitedPacket;
+
     public static void main(String[] args) throws IOException {
 
         if (args.length < 1) {
@@ -52,7 +55,8 @@ public class QuoteClient {
         System.out.println("trying my init");
 
         //-------------------------------------------- my code
-        QuoteClient client = new QuoteClient();
+
+        QuoteClient client = new QuoteClient(args[1]);
         client.initComs(args);
         //-------------------------------------------- my code
 
@@ -79,6 +83,11 @@ public class QuoteClient {
         */
 
     }
+
+    public QuoteClient(String file){
+        imagePackets = GetFragmentedFile(file);
+        awaitedPacket = 0;
+    }
     private void sendPacket(String packetJson) {
         try{
 
@@ -99,10 +108,12 @@ public class QuoteClient {
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
             this.socket.receive(packet);
 
-            // display response
-            String received = new String(packet.getData(), 0, packet.getLength());
-            System.out.println("receivePacket(): " + received);
-            return received;
+            byte[] packetData = packet.getData();
+            String packetString = new String(packetData, StandardCharsets.UTF_8);
+
+            System.out.println("receivePacket(): " + packetString);
+            return packetString;
+
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -117,19 +128,21 @@ public class QuoteClient {
             addressIP = InetAddress.getByName(args[0]);
             addressPort = 4445;
 
-            String fileName = args[1];
+            String fileName = "Server_file.txt";
             JSONObject content = new JSONObject();
             content.put("pNumber", 1);
-            content.put("pStart", 1);
-            content.put("pEnd", 100);
-            content.put("pStatus", 1);
+            content.put("pStart", 2);
+            content.put("pEnd", 2 + imagePackets.size());
+            content.put("pStatus", 0);
             content.put("mSize", fileName.length());
             content.put("mContent", fileName);
             sendPacket(content.toString());
             //PacketHeader header = new PacketHeader(1, 0,0,fileName.getBytes().length, "First packet");
             //sendPacket(header, fileName);
 
-            receivePacket();
+            String serverResponse = receivePacket();
+            JSONObject responseJSON = new JSONObject(serverResponse);
+            awaitedPacket = (Integer)responseJSON.get("pStatus");
 
             comsInitialized = true;
         }catch (IOException e){
@@ -137,5 +150,41 @@ public class QuoteClient {
         }
         this.socket.close();
 
+    }
+
+    private void sendFile(){
+
+        JSONObject content = new JSONObject();
+        content.put("pNumber", awaitedPacket);
+        content.put("pStart", 2);
+        content.put("pEnd", 2 + imagePackets.size());
+        content.put("pStatus", 0);
+        content.put("mSize", imagePackets.get(awaitedPacket).length());
+        content.put("mContent", imagePackets.get(awaitedPacket));
+        sendPacket(content.toString());
+    }
+
+    public ArrayList<String> GetFragmentedFile(String fileName){
+        ArrayList<String> FragmentedPacket = new ArrayList<>();
+        String tempCharArray = "";
+        int counter = 0;
+        try{
+            File myObj = new File(fileName);
+            Scanner myReader = new Scanner(myObj);
+            while (myReader.hasNext()) {
+                if(counter != 200)
+                {
+                    tempCharArray += myReader.next();
+                    counter ++;
+                }else {
+                    counter = 0;
+                    FragmentedPacket.add(tempCharArray);
+                    tempCharArray = "";
+                }
+            }
+            myReader.close();
+        }catch (Exception e) {
+        }
+        return FragmentedPacket;
     }
 }

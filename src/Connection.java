@@ -34,16 +34,26 @@ public class Connection {
         Integer newPacketNumber = (Integer)content.get("pNumber");
         if(newPacketNumber.equals(currentPacket)){
 
-            imagePackets.add(content.get("mContent").toString());
+            imagePackets.add(currentPacket - startPacket, content.get("mContent").toString());
             currentPacket += 1;
-            return true;
+            errorCount = 0;
 
         } else {
-
             errorCount += 1;
-            return false;
-
         }
+
+        return (currentPacket < finishPacket);
+    }
+    public String generateResponse(){
+
+        JSONObject content = new JSONObject();
+        content.put("pNumber", currentPacket);
+        content.put("pStart", startPacket);
+        content.put("pEnd", finishPacket);
+        content.put("pStatus", currentPacket - startPacket);
+        content.put("mSize", 0);
+        content.put("mContent", "");
+        return content.toString();
     }
 }
 

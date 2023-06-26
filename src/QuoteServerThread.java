@@ -65,23 +65,16 @@ public class QuoteServerThread extends Thread {
             String packetContent = receivePacket();
             Connection connection = new Connection(packetContent);
 
-            JSONObject content = new JSONObject();
-            content.put("pNumber", 1);
-            content.put("pStart", 1);
-            content.put("pEnd", 100);
-            content.put("pStatus", 1);
-            content.put("mSize", 0);
-            content.put("mContent", "");
-            sendPacket(content.toString());
+            sendPacket(connection.generateResponse());
 
             /*
             loop the reception of packets here
              */
-            while(true){
+            boolean FileRemaining = true;
+            while(FileRemaining){
                 String filePacket = receivePacket();
-                if(connection.receive(filePacket)){
-
-                }
+                FileRemaining = connection.receive(filePacket);
+                connection.generateResponse();
 
             }
 

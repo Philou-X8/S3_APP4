@@ -112,9 +112,9 @@ public class QuoteClient {
             // generate error
             Random rand = new Random();
 
-            int n = rand.nextInt(5);
+            int n = rand.nextInt(2);
             if(n == 0) {
-                buf[66] = 5;
+                buf[3] = 51;
                 System.out.println("error generated");
             }
 

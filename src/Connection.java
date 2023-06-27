@@ -44,7 +44,7 @@ public class Connection {
         } else {
             errorCount += 1;
             System.out.println("--- error count: " + errorCount);
-            if(errorCount >= 2) throw new TransissionErrorException();
+            if(errorCount >= 3) throw new TransissionErrorException();
         }
 
         return (currentPacket <= finishPacket);

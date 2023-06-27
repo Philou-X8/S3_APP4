@@ -1,5 +1,4 @@
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import java.io.*;
 import java.net.DatagramPacket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -17,21 +16,26 @@ public class Connection {
     private String fileName;
 
     public Connection(String packetString){
+        imagePackets = new ArrayList<>();
 
         JSONObject content = new JSONObject(packetString);
 
-        currentPacket = (Integer)content.get("pNumber");
+        currentPacket = (Integer)content.get("pNumber") + 1;
         System.out.println(currentPacket);
         startPacket = (Integer)content.get("pStart");
         finishPacket = (Integer)content.get("pEnd");
         fileName = content.get("mContent").toString();
-
+        errorCount = 0;
 
     }
 
-    public boolean receive(String packetString){
+    public boolean receive(String packetString) throws TransissionErrorException{
         JSONObject content = new JSONObject(packetString);
+
+        if((Integer)content.get("pStatus") == 1) return false; // terminate if client ask so
+
         Integer newPacketNumber = (Integer)content.get("pNumber");
+        System.out.println("received packet number: " + newPacketNumber + ", currentPacket: " + currentPacket);
         if(newPacketNumber.equals(currentPacket)){
 
             imagePackets.add(currentPacket - startPacket, content.get("mContent").toString());
@@ -40,9 +44,10 @@ public class Connection {
 
         } else {
             errorCount += 1;
+            if(errorCount > 3) throw new TransissionErrorException();
         }
 
-        return (currentPacket < finishPacket);
+        return (currentPacket <= finishPacket);
     }
     public String generateResponse(){
 
@@ -50,10 +55,25 @@ public class Connection {
         content.put("pNumber", currentPacket);
         content.put("pStart", startPacket);
         content.put("pEnd", finishPacket);
-        content.put("pStatus", currentPacket - startPacket);
+        content.put("pStatus", currentPacket);
         content.put("mSize", 0);
         content.put("mContent", "");
         return content.toString();
+    }
+    public void SaveFile(){
+        try{
+            FileWriter saveFile = new FileWriter(fileName);
+            for(String s : imagePackets){
+                saveFile.write(s);
+            }
+            saveFile.close();
+            System.out.println("File Saved");
+
+        } catch (IOException e) {
+            System.out.println("An error occurred.");
+            e.printStackTrace();
+        }
+
     }
 }
 

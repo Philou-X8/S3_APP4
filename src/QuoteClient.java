@@ -35,6 +35,9 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.zip.CRC32;
+import java.util.zip.Checksum;
+
 public class QuoteClient {
 
     private boolean comsInitialized = false;
@@ -44,6 +47,7 @@ public class QuoteClient {
 
     private ArrayList<String> imagePackets;
     private Integer awaitedPacket;
+    private Integer startPacket;
 
     public static void main(String[] args) throws IOException {
 
@@ -58,9 +62,12 @@ public class QuoteClient {
 
         QuoteClient client = new QuoteClient(args[1]);
         client.initComs(args);
+        System.out.println("--- init complete ---");
+        client.sendingComs();
+        System.out.println("--- sending commplete ---");
+
         //-------------------------------------------- my code
 
-        System.out.println("my init done");
         // get a datagram socket
         /*
         DatagramSocket socket = new DatagramSocket();
@@ -85,13 +92,20 @@ public class QuoteClient {
     }
 
     public QuoteClient(String file){
+
+
         imagePackets = GetFragmentedFile(file);
         awaitedPacket = 0;
+        startPacket = 1;
     }
     private void sendPacket(String packetJson) {
         try{
 
             System.out.println(packetJson);
+
+            //create crc
+            packetJson = EncodeCRC(packetJson);
+
             byte[] buf = packetJson.getBytes(StandardCharsets.UTF_8);
 
             DatagramPacket packet = new DatagramPacket(buf, buf.length, addressIP, addressPort);
@@ -110,6 +124,9 @@ public class QuoteClient {
 
             byte[] packetData = packet.getData();
             String packetString = new String(packetData, StandardCharsets.UTF_8);
+
+            // remove CRC
+            packetString = ValidateCRC(packetString);
 
             System.out.println("receivePacket(): " + packetString);
             return packetString;
@@ -130,9 +147,9 @@ public class QuoteClient {
 
             String fileName = "Server_file.txt";
             JSONObject content = new JSONObject();
-            content.put("pNumber", 1);
-            content.put("pStart", 2);
-            content.put("pEnd", 2 + imagePackets.size());
+            content.put("pNumber", startPacket);
+            content.put("pStart", startPacket + 1);
+            content.put("pEnd", startPacket + imagePackets.size());
             content.put("pStatus", 0);
             content.put("mSize", fileName.length());
             content.put("mContent", fileName);
@@ -144,23 +161,46 @@ public class QuoteClient {
             JSONObject responseJSON = new JSONObject(serverResponse);
             awaitedPacket = (Integer)responseJSON.get("pStatus");
 
+
             comsInitialized = true;
         }catch (IOException e){
             e.printStackTrace();
         }
-        this.socket.close();
 
     }
 
-    private void sendFile(){
+    private void sendingComs(){
+        boolean notDone = true;
+        while(notDone){
+            System.out.println("Sending packet no.: " + awaitedPacket.toString());
+            sendFile(0);
+
+            String serverResponse = receivePacket();
+            JSONObject responseJSON = new JSONObject(serverResponse);
+            awaitedPacket = (Integer)responseJSON.get("pStatus");
+            if((awaitedPacket - startPacket) > imagePackets.size()){
+                notDone = false;
+            }
+        }
+        JSONObject content = new JSONObject();
+        content.put("pNumber", awaitedPacket);
+        content.put("pStart", startPacket + 1);
+        content.put("pEnd", startPacket + imagePackets.size());
+        content.put("pStatus", 1);
+        content.put("mSize", 0);
+        content.put("mContent", "");
+        sendPacket(content.toString());
+    }
+
+    private void sendFile(int status){
 
         JSONObject content = new JSONObject();
         content.put("pNumber", awaitedPacket);
-        content.put("pStart", 2);
-        content.put("pEnd", 2 + imagePackets.size());
-        content.put("pStatus", 0);
-        content.put("mSize", imagePackets.get(awaitedPacket).length());
-        content.put("mContent", imagePackets.get(awaitedPacket));
+        content.put("pStart", startPacket + 1);
+        content.put("pEnd", startPacket + imagePackets.size());
+        content.put("pStatus", status);
+        content.put("mSize", imagePackets.get(awaitedPacket - startPacket - 1).length());
+        content.put("mContent", imagePackets.get(awaitedPacket - startPacket - 1));
         sendPacket(content.toString());
     }
 
@@ -172,7 +212,7 @@ public class QuoteClient {
             File myObj = new File(fileName);
             Scanner myReader = new Scanner(myObj);
             while (myReader.hasNext()) {
-                if(counter != 200)
+                if(counter != 20)
                 {
                     tempCharArray += myReader.next();
                     counter ++;
@@ -186,5 +226,29 @@ public class QuoteClient {
         }catch (Exception e) {
         }
         return FragmentedPacket;
+    }
+
+    public String ValidateCRC (String s){
+        if (s.isEmpty()) {
+            return null;
+        }
+
+        String codeCRC  = s.substring(0, s.indexOf('{'));
+        String JsonObject = s.substring(s.indexOf('{'), s.lastIndexOf('}')+1);
+
+        Checksum crc32 = new CRC32();
+        crc32.update(JsonObject.getBytes(StandardCharsets.UTF_8));
+
+        if(Long.valueOf(codeCRC) == crc32.getValue())
+        {
+            return JsonObject;
+        }
+        return null;
+    }
+
+    public String EncodeCRC (String JsonObject){
+        Checksum crc32 = new CRC32();
+        crc32.update(JsonObject.getBytes(StandardCharsets.UTF_8));
+        return crc32.getValue() + JsonObject;
     }
 }

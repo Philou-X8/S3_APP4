@@ -34,6 +34,8 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.zip.CRC32;
+import java.util.zip.Checksum;
 
 public class QuoteServerThread extends Thread {
 
@@ -73,10 +75,17 @@ public class QuoteServerThread extends Thread {
             boolean FileRemaining = true;
             while(FileRemaining){
                 String filePacket = receivePacket();
-                FileRemaining = connection.receive(filePacket);
-                connection.generateResponse();
-
+                try{
+                    FileRemaining = connection.receive(filePacket);
+                } catch (TransissionErrorException e) {
+                    break;
+                }
+                System.out.println("file remaining");
+                sendPacket(connection.generateResponse());
+                System.out.println("response sent from server");
             }
+            connection.SaveFile();
+
 
             /*
             try {
@@ -115,8 +124,8 @@ public class QuoteServerThread extends Thread {
 
             }
             */
+
         }
-        socket.close();
     }
 
     protected String getNextQuote() {
@@ -145,6 +154,9 @@ public class QuoteServerThread extends Thread {
             byte[] packetData = packet.getData();
             String packetString = new String(packetData, StandardCharsets.UTF_8);
 
+            // remove CRC
+            packetString = ValidateCRC(packetString);
+
             System.out.println("receivePacket(): " + packetString);
             return packetString;
 
@@ -157,7 +169,11 @@ public class QuoteServerThread extends Thread {
     private void sendPacket(String packetString) {
         try{
 
+            //create crc
+            packetString = EncodeCRC(packetString);
+
             byte[] buf = packetString.getBytes(StandardCharsets.UTF_8);
+
 
             DatagramPacket packet = new DatagramPacket(buf, buf.length, this.addressIP, this.addressPort);
             this.socket.send(packet);
@@ -165,6 +181,31 @@ public class QuoteServerThread extends Thread {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+
+    public String ValidateCRC (String s){
+        if (s.isEmpty()) {
+            return null;
+        }
+
+        String codeCRC  = s.substring(0, s.indexOf('{'));
+        String JsonObject = s.substring(s.indexOf('{'), s.lastIndexOf('}')+1);
+
+        Checksum crc32 = new CRC32();
+        crc32.update(JsonObject.getBytes(StandardCharsets.UTF_8));
+
+        if(Long.valueOf(codeCRC) == crc32.getValue())
+        {
+            return JsonObject;
+        }
+        return null;
+    }
+
+    public String EncodeCRC (String JsonObject){
+        Checksum crc32 = new CRC32();
+        crc32.update(JsonObject.getBytes(StandardCharsets.UTF_8));
+        return crc32.getValue() + JsonObject;
     }
 
 }

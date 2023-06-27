@@ -101,12 +101,23 @@ public class QuoteClient {
     private void sendPacket(String packetJson) {
         try{
 
-            System.out.println(packetJson);
-
             //create crc
             packetJson = EncodeCRC(packetJson);
 
+
             byte[] buf = packetJson.getBytes(StandardCharsets.UTF_8);
+
+
+
+            // generate error
+            Random rand = new Random();
+
+            int n = rand.nextInt(5);
+            if(n == 0) {
+                buf[66] = 5;
+                System.out.println("error generated");
+            }
+
 
             DatagramPacket packet = new DatagramPacket(buf, buf.length, addressIP, addressPort);
             this.socket.send(packet);
@@ -125,16 +136,17 @@ public class QuoteClient {
             byte[] packetData = packet.getData();
             String packetString = new String(packetData, StandardCharsets.UTF_8);
 
+
+
             // remove CRC
             packetString = ValidateCRC(packetString);
 
-            System.out.println("receivePacket(): " + packetString);
             return packetString;
 
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return "failed to receive packet";
+        return null;
     }
 
     private void initComs(String[] args) throws IOException{
@@ -153,11 +165,17 @@ public class QuoteClient {
             content.put("pStatus", 0);
             content.put("mSize", fileName.length());
             content.put("mContent", fileName);
-            sendPacket(content.toString());
+
+            String serverResponse = null;
+            while(serverResponse == null){
+                sendPacket(content.toString());
+                serverResponse = receivePacket();
+            }
+            //sendPacket(content.toString());
             //PacketHeader header = new PacketHeader(1, 0,0,fileName.getBytes().length, "First packet");
             //sendPacket(header, fileName);
 
-            String serverResponse = receivePacket();
+            //String serverResponse = receivePacket();
             JSONObject responseJSON = new JSONObject(serverResponse);
             awaitedPacket = (Integer)responseJSON.get("pStatus");
 
@@ -176,6 +194,11 @@ public class QuoteClient {
             sendFile(0);
 
             String serverResponse = receivePacket();
+
+            if(serverResponse==null){ //CRC failed
+                continue;
+            }
+
             JSONObject responseJSON = new JSONObject(serverResponse);
             awaitedPacket = (Integer)responseJSON.get("pStatus");
             if((awaitedPacket - startPacket) > imagePackets.size()){
@@ -189,7 +212,7 @@ public class QuoteClient {
         content.put("pStatus", 1);
         content.put("mSize", 0);
         content.put("mContent", "");
-        sendPacket(content.toString());
+        //sendPacket(content.toString());
     }
 
     private void sendFile(int status){
@@ -233,6 +256,8 @@ public class QuoteClient {
             return null;
         }
 
+        Logs.AddLogs("Client: receive packet: " + s);
+
         String codeCRC  = s.substring(0, s.indexOf('{'));
         String JsonObject = s.substring(s.indexOf('{'), s.lastIndexOf('}')+1);
 
@@ -243,10 +268,14 @@ public class QuoteClient {
         {
             return JsonObject;
         }
+        Logs.AddLogs("Client: CRC Failed");
         return null;
     }
 
     public String EncodeCRC (String JsonObject){
+
+        Logs.AddLogs("Client: send packet: " + JsonObject);
+
         Checksum crc32 = new CRC32();
         crc32.update(JsonObject.getBytes(StandardCharsets.UTF_8));
         return crc32.getValue() + JsonObject;

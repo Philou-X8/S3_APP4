@@ -21,7 +21,6 @@ public class Connection {
         JSONObject content = new JSONObject(packetString);
 
         currentPacket = (Integer)content.get("pNumber") + 1;
-        System.out.println(currentPacket);
         startPacket = (Integer)content.get("pStart");
         finishPacket = (Integer)content.get("pEnd");
         fileName = content.get("mContent").toString();
@@ -44,7 +43,8 @@ public class Connection {
 
         } else {
             errorCount += 1;
-            if(errorCount > 3) throw new TransissionErrorException();
+            System.out.println("--- error count: " + errorCount);
+            if(errorCount >= 2) throw new TransissionErrorException();
         }
 
         return (currentPacket <= finishPacket);
@@ -65,6 +65,7 @@ public class Connection {
             FileWriter saveFile = new FileWriter(fileName);
             for(String s : imagePackets){
                 saveFile.write(s);
+                saveFile.write('\n');
             }
             saveFile.close();
             System.out.println("File Saved");

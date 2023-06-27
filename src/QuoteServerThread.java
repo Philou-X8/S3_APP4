@@ -65,6 +65,10 @@ public class QuoteServerThread extends Thread {
 
         while (moreQuotes) {
             String packetContent = receivePacket();
+            if(packetContent==null){ // if CRC failed
+                sendPacket("");
+                continue;
+            }
             Connection connection = new Connection(packetContent);
 
             sendPacket(connection.generateResponse());
@@ -75,16 +79,19 @@ public class QuoteServerThread extends Thread {
             boolean FileRemaining = true;
             while(FileRemaining){
                 String filePacket = receivePacket();
+                if(filePacket==null){ // if CRC failed
+                    sendPacket(connection.generateResponse());
+                    continue;
+                }
                 try{
                     FileRemaining = connection.receive(filePacket);
                 } catch (TransissionErrorException e) {
+
                     break;
                 }
-                System.out.println("file remaining");
                 sendPacket(connection.generateResponse());
-                System.out.println("response sent from server");
             }
-            connection.SaveFile();
+            if(!FileRemaining) connection.SaveFile();
 
 
             /*
@@ -154,10 +161,11 @@ public class QuoteServerThread extends Thread {
             byte[] packetData = packet.getData();
             String packetString = new String(packetData, StandardCharsets.UTF_8);
 
+
+
             // remove CRC
             packetString = ValidateCRC(packetString);
 
-            System.out.println("receivePacket(): " + packetString);
             return packetString;
 
         } catch (IOException e) {
@@ -174,6 +182,14 @@ public class QuoteServerThread extends Thread {
 
             byte[] buf = packetString.getBytes(StandardCharsets.UTF_8);
 
+            // generate error
+            Random rand = new Random();
+
+            int n = rand.nextInt(5);
+            if(n == 0) {
+                buf[66] = 5;
+                System.out.println("error generated");
+            }
 
             DatagramPacket packet = new DatagramPacket(buf, buf.length, this.addressIP, this.addressPort);
             this.socket.send(packet);
@@ -188,6 +204,7 @@ public class QuoteServerThread extends Thread {
         if (s.isEmpty()) {
             return null;
         }
+        Logs.AddLogs("Server: receive packet: " + s);
 
         String codeCRC  = s.substring(0, s.indexOf('{'));
         String JsonObject = s.substring(s.indexOf('{'), s.lastIndexOf('}')+1);
@@ -199,10 +216,12 @@ public class QuoteServerThread extends Thread {
         {
             return JsonObject;
         }
+        Logs.AddLogs("Serveur: CRC Failed");
         return null;
     }
 
     public String EncodeCRC (String JsonObject){
+        Logs.AddLogs("Server: send packet: " + JsonObject);
         Checksum crc32 = new CRC32();
         crc32.update(JsonObject.getBytes(StandardCharsets.UTF_8));
         return crc32.getValue() + JsonObject;

@@ -38,6 +38,9 @@ import java.util.*;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
 
+/**
+ * Client
+ */
 public class QuoteClient {
 
     private boolean comsInitialized = false;
@@ -56,7 +59,7 @@ public class QuoteClient {
             return;
         }
 
-        System.out.println("trying my init");
+        System.out.println("--- starting ---");
 
         //-------------------------------------------- my code
 
@@ -64,7 +67,7 @@ public class QuoteClient {
         client.initComs(args);
         System.out.println("--- init complete ---");
         client.sendingComs();
-        System.out.println("--- sending commplete ---");
+        System.out.println("--- sending complete ---");
 
         //-------------------------------------------- my code
 
@@ -91,6 +94,10 @@ public class QuoteClient {
 
     }
 
+    /**
+     * Constructor
+     * @param file name of file to send
+     */
     public QuoteClient(String file){
 
 
@@ -98,6 +105,11 @@ public class QuoteClient {
         awaitedPacket = 0;
         startPacket = 1;
     }
+
+    /**
+     * Send a packet to the server
+     * @param packetJson string of the Json ready to be sent
+     */
     private void sendPacket(String packetJson) {
         try{
 
@@ -109,15 +121,14 @@ public class QuoteClient {
 
 
 
-            // generate error
+            // generate error ----------------------------------
             Random rand = new Random();
-
-            int n = rand.nextInt(2);
+            int n = rand.nextInt(3);
             if(n == 0) {
                 buf[3] = 51;
                 System.out.println("error generated");
             }
-
+            // -------------------------------------------------
 
             DatagramPacket packet = new DatagramPacket(buf, buf.length, addressIP, addressPort);
             this.socket.send(packet);
@@ -127,6 +138,11 @@ public class QuoteClient {
         }
     }
 
+    /**
+     * Receive a packet from the server.
+     * Returns [null] if there's been an error during communication
+     * @return packet formated to JSON
+     */
     private String receivePacket(){
         try{
             byte[] buf = new byte[256];
@@ -135,8 +151,6 @@ public class QuoteClient {
 
             byte[] packetData = packet.getData();
             String packetString = new String(packetData, StandardCharsets.UTF_8);
-
-
 
             // remove CRC
             packetString = ValidateCRC(packetString);
@@ -149,6 +163,12 @@ public class QuoteClient {
         return null;
     }
 
+    /**
+     * Establish communication with the server.
+     * (Note: this communication is less resilient than data transfer's packet)
+     * @param args [0]: IP address, [1]: name of file
+     * @throws IOException if the socket can't be created
+     */
     private void initComs(String[] args) throws IOException{
         boolean awaitingResponse = true;
         this.socket = new DatagramSocket();
@@ -187,6 +207,9 @@ public class QuoteClient {
 
     }
 
+    /**
+     * Send the file to server in parts
+     */
     private void sendingComs(){
         boolean notDone = true;
         while(notDone){
@@ -215,6 +238,10 @@ public class QuoteClient {
         //sendPacket(content.toString());
     }
 
+    /**
+     * Format the JSON of the packet then send it
+     * @param status status message
+     */
     private void sendFile(int status){
 
         JSONObject content = new JSONObject();
@@ -227,6 +254,11 @@ public class QuoteClient {
         sendPacket(content.toString());
     }
 
+    /**
+     * Split the file into shorter strings
+     * @param fileName name of the file to send
+     * @return split file
+     */
     public ArrayList<String> GetFragmentedFile(String fileName){
         ArrayList<String> FragmentedPacket = new ArrayList<>();
         String tempCharArray = "";
@@ -251,6 +283,11 @@ public class QuoteClient {
         return FragmentedPacket;
     }
 
+    /**
+     * validate and remove the CRC from the packet
+     * @param s content of the packet
+     * @return [null] if the CRC failed - [Json String] otherwise
+     */
     public String ValidateCRC (String s){
         if (s.isEmpty()) {
             return null;
@@ -272,12 +309,16 @@ public class QuoteClient {
         return null;
     }
 
+    /**
+     * Add the CRC to the packet
+     * @param JsonObject String of the Json
+     * @return formated packet ready to be sent
+     */
     public String EncodeCRC (String JsonObject){
-
-        Logs.AddLogs("Client: send packet: " + JsonObject);
 
         Checksum crc32 = new CRC32();
         crc32.update(JsonObject.getBytes(StandardCharsets.UTF_8));
+        Logs.AddLogs("Client: send packet: " + crc32.getValue() + JsonObject);
         return crc32.getValue() + JsonObject;
     }
 }

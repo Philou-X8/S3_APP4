@@ -37,6 +37,9 @@ import java.util.*;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
 
+/**
+ * Thread of the server
+ */
 public class QuoteServerThread extends Thread {
 
     protected DatagramSocket socket = null;
@@ -50,6 +53,11 @@ public class QuoteServerThread extends Thread {
         this("QuoteServerThread");
     }
 
+    /**
+     * Initialize the server thread
+     * @param name ngl, idk
+     * @throws IOException if the socket couldn't be initialized
+     */
     public QuoteServerThread(String name) throws IOException {
         super(name);
         socket = new DatagramSocket(4445);
@@ -61,6 +69,9 @@ public class QuoteServerThread extends Thread {
         }
     }
 
+    /**
+     * Run the thread that read and send to the socket
+     */
     public void run() {
 
         while (moreQuotes) {
@@ -136,6 +147,10 @@ public class QuoteServerThread extends Thread {
         }
     }
 
+    /**
+     * TODO: delete this methode
+     * @return
+     */
     protected String getNextQuote() {
         String returnValue = null;
         try {
@@ -149,8 +164,11 @@ public class QuoteServerThread extends Thread {
         }
         return returnValue;
     }
-
-
+    /**
+     * Receive a packet from the Client.
+     * Returns [null] if there's been an error during communication
+     * @return packet formated to JSON
+     */
     private String receivePacket(){
         try{
             byte[] buf = new byte[256];
@@ -175,6 +193,10 @@ public class QuoteServerThread extends Thread {
         return "";
     }
 
+    /**
+     * Send a packet to the client
+     * @param packetString string of the Json that must be sent
+     */
     private void sendPacket(String packetString) {
         try{
 
@@ -185,7 +207,7 @@ public class QuoteServerThread extends Thread {
 
             // generate error ----------------------------------
             Random rand = new Random();
-            int n = rand.nextInt(2);
+            int n = rand.nextInt(3);
             if(n == 0) {
                 buf[3] = 51;
                 System.out.println("error generated");
@@ -201,6 +223,11 @@ public class QuoteServerThread extends Thread {
     }
 
 
+    /**
+     * validate and remove the CRC from the packet
+     * @param s content of the packet
+     * @return [null] if the CRC failed - [Json String] otherwise
+     */
     public String ValidateCRC (String s){
         if (s.isEmpty()) {
             return null;
@@ -221,10 +248,15 @@ public class QuoteServerThread extends Thread {
         return null;
     }
 
+    /**
+     * Add the CRC to the packet
+     * @param JsonObject String of the Json
+     * @return formated packet ready to be sent
+     */
     public String EncodeCRC (String JsonObject){
-        Logs.AddLogs("Server: send packet: " + JsonObject);
         Checksum crc32 = new CRC32();
         crc32.update(JsonObject.getBytes(StandardCharsets.UTF_8));
+        Logs.AddLogs("Server: send packet: " + crc32.getValue() + JsonObject);
         return crc32.getValue() + JsonObject;
     }
 

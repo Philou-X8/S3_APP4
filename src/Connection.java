@@ -15,6 +15,10 @@ public class Connection {
     private Integer errorCount;
     private String fileName;
 
+    /**
+     * Establish the parameters of the connexion (eg: number of packet expected)
+     * @param packetString First packet of the communication received from the client
+     */
     public Connection(String packetString){
         imagePackets = new ArrayList<>();
 
@@ -28,6 +32,12 @@ public class Connection {
 
     }
 
+    /**
+     * Handles the json of a newly received packet
+     * @param packetString packet formated to json
+     * @return True if the server is expecting more packets - False if the file is complete
+     * @throws TransissionErrorException when 3 packets in a row are corrupted or miss ordered
+     */
     public boolean receive(String packetString) throws TransissionErrorException{
         JSONObject content = new JSONObject(packetString);
 
@@ -49,6 +59,11 @@ public class Connection {
 
         return (currentPacket <= finishPacket);
     }
+
+    /**
+     * Generate the response json that will be sent to the client
+     * @return json String
+     */
     public String generateResponse(){
 
         JSONObject content = new JSONObject();
@@ -60,6 +75,10 @@ public class Connection {
         content.put("mContent", "");
         return content.toString();
     }
+
+    /**
+     * Build and save file from the received data
+     */
     public void SaveFile(){
         try{
             FileWriter saveFile = new FileWriter(fileName);

@@ -1,0 +1,1 @@
+typeSearchIndex = [{"l":"All Classes and Interfaces","u":"allclasses-index.html"},{"p":"<Unnamed>","l":"Connection"},{"p":"<Unnamed>","l":"Logs"},{"p":"<Unnamed>","l":"Main"},{"p":"<Unnamed>","l":"QuoteClient"},{"p":"<Unnamed>","l":"QuoteServer"},{"p":"<Unnamed>","l":"QuoteServerThread"},{"p":"<Unnamed>","l":"TransissionErrorException"}];updateSearchResults();
